@@ -1,0 +1,132 @@
+import tkinter as tk
+from tkinter import messagebox
+
+WIDTH, HEIGHT = 800, 600
+START_LIVES = 3
+MOVE_SPEED = 20
+DURATION_MS = 5 * 60 * 1000  # 5 minutes
+CELL_SIZE = 40
+
+# map file used for all levels for now
+MAP_FILES = {lvl: "maps/example_map.txt" for lvl in range(1, 21)}
+
+
+def load_map(canvas, path):
+    with open(path) as f:
+        for row, line in enumerate(f):
+            for col, char in enumerate(line.rstrip("\n")):
+                if char == "#":
+                    x1 = col * CELL_SIZE
+                    y1 = row * CELL_SIZE
+                    x2 = x1 + CELL_SIZE
+                    y2 = y1 + CELL_SIZE
+                    canvas.create_rectangle(x1, y1, x2, y2, fill="lightgray")
+
+
+class SwordGameApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Sword Levels")
+        self.resizable(False, False)
+
+        self.level = None
+        self.lives = START_LIVES
+        self.base_x = WIDTH // 2
+        self.base_y = HEIGHT - 20
+
+        # start screen with level selection
+        self.start_frame = tk.Frame(self)
+        self.start_frame.pack()
+        tk.Label(self.start_frame, text="Select Level").pack(pady=10)
+
+        level_buttons = tk.Frame(self.start_frame)
+        level_buttons.pack()
+        for i in range(1, 21):
+            btn = tk.Button(level_buttons, text=str(i), width=3,
+                            command=lambda lvl=i: self.start_game(lvl))
+            btn.grid(row=(i - 1) // 10, column=(i - 1) % 10, padx=2, pady=2)
+
+        self.game_frame = None
+        self.canvas = None
+        self.sword = None
+        self.player = None
+        self.lives_label = None
+
+    def start_game(self, level):
+        self.level = level
+        self.start_frame.pack_forget()
+
+        # reset lives and base position
+        self.lives = START_LIVES
+        self.base_x = WIDTH // 2
+        self.base_y = HEIGHT - 20
+
+        self.game_frame = tk.Frame(self)
+        self.game_frame.pack()
+
+        self.lives_label = tk.Label(self.game_frame, text=f"Lives: {self.lives}")
+        self.lives_label.pack(anchor="nw")
+
+        self.canvas = tk.Canvas(self.game_frame, width=WIDTH, height=HEIGHT, bg="white")
+        self.canvas.pack()
+
+        # draw level obstacles from map file
+        load_map(self.canvas, MAP_FILES.get(level, "maps/example_map.txt"))
+
+        # player represented as circle
+        self.player = self.canvas.create_oval(
+            self.base_x - 10, self.base_y - 10, self.base_x + 10, self.base_y + 10,
+            fill="blue"
+        )
+
+        # sword represented as line from base to mouse
+        self.sword = self.canvas.create_line(
+            self.base_x, self.base_y, self.base_x, self.base_y - 100, width=5, fill="gray"
+        )
+        self.bind("<Motion>", self.move_sword)
+        self.bind("<Button-1>", self.swing_sword)
+        self.bind("<Left>", lambda e: self.move_player(-MOVE_SPEED, 0))
+        self.bind("<Right>", lambda e: self.move_player(MOVE_SPEED, 0))
+        self.bind("<Up>", lambda e: self.move_player(0, -MOVE_SPEED))
+        self.bind("<Down>", lambda e: self.move_player(0, MOVE_SPEED))
+        self.bind("<space>", lambda e: self.lose_life())
+
+        self.after(DURATION_MS, self.end_game)
+
+    def move_player(self, dx, dy):
+        # update player base position within bounds
+        self.base_x = max(0, min(WIDTH, self.base_x + dx))
+        self.base_y = max(0, min(HEIGHT, self.base_y + dy))
+        self.canvas.move(self.player, dx, dy)
+        x2, y2 = self.canvas.coords(self.sword)[2:]
+        self.canvas.coords(self.sword, self.base_x, self.base_y, x2, y2)
+
+    def move_sword(self, event):
+        # update sword line to point towards mouse
+        self.canvas.coords(self.sword, self.base_x, self.base_y, event.x, event.y)
+
+    def swing_sword(self, event):
+        # flash sword color when clicking to simulate swing
+        self.canvas.itemconfig(self.sword, fill="red")
+        self.after(100, lambda: self.canvas.itemconfig(self.sword, fill="gray"))
+
+    def lose_life(self):
+        if self.lives <= 0:
+            return
+        self.lives -= 1
+        self.lives_label.config(text=f"Lives: {self.lives}")
+        if self.lives <= 0:
+            self.end_game(reason="out of lives")
+
+    def end_game(self, reason="time"):
+        if reason == "out of lives":
+            msg = f"Out of lives! Level {self.level} over."
+        else:
+            msg = f"Time's up! Level {self.level} over."
+        messagebox.showinfo("Game Over", msg)
+        self.destroy()
+
+
+if __name__ == "__main__":
+    app = SwordGameApp()
+    app.mainloop()
