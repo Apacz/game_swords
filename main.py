@@ -132,10 +132,10 @@ class SwordGameApp(tk.Tk):
 
         # list of active fruits
         self.fruits = []
-        self.spawn_fruit()
 
-        # sword initially inactive; timer countdown
+        # sword initially inactive; ensure defined before spawning fruits
         self.sword_active = False
+        self.spawn_fruit()
         self.remaining_ms = DURATION_MS
         self.update_timer()
 
