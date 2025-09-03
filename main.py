@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox
 import random
+import json
+import os
 
 WIDTH, HEIGHT = 800, 600
 START_LIVES = 3
@@ -13,6 +15,51 @@ MAP_FILES = {lvl: "maps/example_map.txt" for lvl in range(1, 21)}
 
 # base vertical speed of falling fruits
 FRUIT_BASE_SPEED = 2
+
+# --- simple profile handling -------------------------------------------------
+
+PROFILE_FILE = "user_profile.json"
+
+
+def load_profile(path: str = PROFILE_FILE):
+    """Load profile data from *path* if it exists.
+
+    Returns a dict with at least the key ``highest_level`` indicating the
+    highest unlocked level. If the file is missing or invalid, a default profile
+    with only level 1 unlocked is returned.
+    """
+
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            data = {"highest_level": 1}
+    else:
+        data = {"highest_level": 1}
+    if "highest_level" not in data:
+        data["highest_level"] = 1
+    return data
+
+
+def save_profile(data, path: str = PROFILE_FILE):
+    """Persist *data* to *path* as JSON."""
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+
+
+def unlock_next_level(profile: dict, current_level: int):
+    """Unlock the level following *current_level* in ``profile``.
+
+    The ``profile`` dict is modified in place. The highest unlocked level only
+    increases when the current level is at least as high as the previously
+    unlocked level. Levels above 20 are ignored.
+    """
+
+    highest = profile.get("highest_level", 1)
+    if current_level >= highest and current_level < 20:
+        profile["highest_level"] = current_level + 1
 
 
 class Fruit:
@@ -63,6 +110,9 @@ class SwordGameApp(tk.Tk):
         self.base_x = WIDTH // 2
         self.base_y = HEIGHT - 20
 
+        # load player profile for level unlocking
+        self.profile = load_profile()
+
         # start screen with level selection
         self.start_frame = tk.Frame(self)
         self.start_frame.pack()
@@ -70,10 +120,15 @@ class SwordGameApp(tk.Tk):
 
         level_buttons = tk.Frame(self.start_frame)
         level_buttons.pack()
+        self.level_buttons = []
         for i in range(1, 21):
             btn = tk.Button(level_buttons, text=str(i), width=3,
                             command=lambda lvl=i: self.start_game(lvl))
             btn.grid(row=(i - 1) // 10, column=(i - 1) % 10, padx=2, pady=2)
+            self.level_buttons.append(btn)
+
+        # apply initial locking based on profile
+        self.update_level_buttons()
 
         self.game_frame = None
         self.canvas = None
@@ -81,9 +136,18 @@ class SwordGameApp(tk.Tk):
         self.player = None
         self.lives_label = None
 
+    def update_level_buttons(self):
+        """Enable only the levels that have been unlocked."""
+
+        highest = self.profile.get("highest_level", 1)
+        for idx, btn in enumerate(self.level_buttons, start=1):
+            state = tk.NORMAL if idx <= highest else tk.DISABLED
+            btn.config(state=state)
+
     def start_game(self, level):
         self.level = level
         self.start_frame.pack_forget()
+        self.running = True
 
         # reset lives
         self.lives = START_LIVES
@@ -141,6 +205,8 @@ class SwordGameApp(tk.Tk):
 
     def update_timer(self):
         """Update the countdown timer displayed on screen."""
+        if not self.__dict__.get("running", True):
+            return
         if self.remaining_ms <= 0:
             self.end_game()
             return
@@ -157,6 +223,9 @@ class SwordGameApp(tk.Tk):
         canvas. The sword's tip should maintain its relative position to the
         player as the player moves.
         """
+
+        if not self.__dict__.get("running", True):
+            return
 
         # Calculate new base position with margins so the whole player stays
         # inside the canvas bounds.
@@ -189,6 +258,33 @@ class SwordGameApp(tk.Tk):
             y2 + actual_dy,
         )
 
+        self.check_level_complete()
+
+    def check_level_complete(self):
+        """Check whether the player reached the end of the level."""
+
+        end_pos = self.__dict__.get("end_pos")
+        if not end_pos:
+            return
+        ex, ey = end_pos
+        if (
+            abs(self.base_x - ex) <= CELL_SIZE // 2
+            and abs(self.base_y - ey) <= CELL_SIZE // 2
+        ):
+            self.complete_level()
+
+    def complete_level(self):
+        """Handle level completion: unlock the next level and return to start."""
+
+        self.running = False
+        messagebox.showinfo("Level Complete", f"Level {self.level} complete!")
+        unlock_next_level(self.profile, self.level)
+        save_profile(self.profile)
+        if self.game_frame:
+            self.game_frame.destroy()
+        self.start_frame.pack()
+        self.update_level_buttons()
+
     def move_sword(self, event):
         # update sword line to point towards mouse
         self.canvas.coords(self.sword, self.base_x, self.base_y, event.x, event.y)
@@ -215,6 +311,8 @@ class SwordGameApp(tk.Tk):
 
     def spawn_fruit(self):
         """Create a new falling fruit and schedule the next spawn."""
+        if not self.__dict__.get("running", True):
+            return
         x = random.randint(20, WIDTH - 20)
         fruit = Fruit(self.canvas, self.level, x, 0)
         self.fruits.append(fruit)
@@ -225,6 +323,8 @@ class SwordGameApp(tk.Tk):
 
     def move_fruit(self, fruit):
         """Move fruit down the screen and handle collisions."""
+        if not self.__dict__.get("running", True):
+            return
         fruit.move()
         if self.check_sword_hit(fruit):
             self.canvas.delete(fruit.id)
