@@ -93,8 +93,13 @@ class SwordGameApp(tk.Tk):
         self.game_frame = tk.Frame(self)
         self.game_frame.pack()
 
-        self.lives_label = tk.Label(self.game_frame, text=f"Lives: {self.lives}")
-        self.lives_label.pack(anchor="nw")
+        # top bar showing lives and remaining time
+        info_frame = tk.Frame(self.game_frame)
+        info_frame.pack(fill="x")
+        self.lives_label = tk.Label(info_frame, text=f"Lives: {self.lives}")
+        self.lives_label.pack(side="left")
+        self.timer_label = tk.Label(info_frame, text="Time: 05:00")
+        self.timer_label.pack(side="right")
 
         self.canvas = tk.Canvas(self.game_frame, width=WIDTH, height=HEIGHT, bg="white")
         self.canvas.pack()
@@ -129,7 +134,21 @@ class SwordGameApp(tk.Tk):
         self.fruits = []
         self.spawn_fruit()
 
-        self.after(DURATION_MS, self.end_game)
+        # sword initially inactive; timer countdown
+        self.sword_active = False
+        self.remaining_ms = DURATION_MS
+        self.update_timer()
+
+    def update_timer(self):
+        """Update the countdown timer displayed on screen."""
+        if self.remaining_ms <= 0:
+            self.end_game()
+            return
+        total_seconds = self.remaining_ms // 1000
+        mins, secs = divmod(total_seconds, 60)
+        self.timer_label.config(text=f"Time: {mins:02d}:{secs:02d}")
+        self.remaining_ms -= 1000
+        self.after(1000, self.update_timer)
 
     def move_player(self, dx, dy):
         """Move the player and keep the sword aligned.
@@ -175,9 +194,14 @@ class SwordGameApp(tk.Tk):
         self.canvas.coords(self.sword, self.base_x, self.base_y, event.x, event.y)
 
     def swing_sword(self, event):
-        # flash sword color when clicking to simulate swing
+        """Activate the sword briefly when clicked."""
+        self.sword_active = True
         self.canvas.itemconfig(self.sword, fill="red")
-        self.after(100, lambda: self.canvas.itemconfig(self.sword, fill="gray"))
+        self.after(100, self.deactivate_sword)
+
+    def deactivate_sword(self):
+        self.sword_active = False
+        self.canvas.itemconfig(self.sword, fill="gray")
 
     def lose_life(self):
         if self.lives <= 0:
@@ -218,7 +242,9 @@ class SwordGameApp(tk.Tk):
             self.after(50, lambda: self.move_fruit(fruit))
 
     def check_sword_hit(self, fruit):
-        """Return True if the sword overlaps the given fruit."""
+        """Return True if the sword overlaps the fruit while active."""
+        if not self.sword_active:
+            return False
         x1, y1, x2, y2 = self.canvas.coords(fruit.id)
         overlapping = self.canvas.find_overlapping(x1, y1, x2, y2)
         return self.sword in overlapping
