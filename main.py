@@ -94,12 +94,34 @@ class SwordGameApp(tk.Tk):
         self.after(DURATION_MS, self.end_game)
 
     def move_player(self, dx, dy):
-        # update player base position within bounds
-        self.base_x = max(0, min(WIDTH, self.base_x + dx))
-        self.base_y = max(0, min(HEIGHT, self.base_y + dy))
-        self.canvas.move(self.player, dx, dy)
-        x2, y2 = self.canvas.coords(self.sword)[2:]
-        self.canvas.coords(self.sword, self.base_x, self.base_y, x2, y2)
+        """Move the player and keep the sword aligned.
+
+        The player's base position is restricted to stay fully within the
+        canvas. The sword's tip should maintain its relative position to the
+        player as the player moves.
+        """
+
+        # Calculate new base position with margins so the whole player stays
+        # inside the canvas bounds.
+        margin = 10
+        old_x, old_y = self.base_x, self.base_y
+        self.base_x = max(margin, min(WIDTH - margin, self.base_x + dx))
+        self.base_y = max(margin, min(HEIGHT - margin, self.base_y + dy))
+
+        # Determine the actual distance moved (may be less than dx/dy at edges)
+        actual_dx = self.base_x - old_x
+        actual_dy = self.base_y - old_y
+        self.canvas.move(self.player, actual_dx, actual_dy)
+
+        # Move sword tip by the same amount to keep orientation
+        x1, y1, x2, y2 = self.canvas.coords(self.sword)
+        self.canvas.coords(
+            self.sword,
+            self.base_x,
+            self.base_y,
+            x2 + actual_dx,
+            y2 + actual_dy,
+        )
 
     def move_sword(self, event):
         # update sword line to point towards mouse
