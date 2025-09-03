@@ -64,3 +64,12 @@ def test_move_player_stays_within_bounds():
     assert app.base_x == 10
     assert app.base_y == 10
     assert app.canvas.coords(app.sword) == [10, 10, 10, -90]
+
+
+def test_move_player_blocked_by_wall():
+    app = make_app()
+    wall = [app.base_x + 10, app.base_y - 10, app.base_x + 30, app.base_y + 10]
+    app.walls = [wall]
+    app.move_player(20, 0)
+    assert app.base_x == main.WIDTH // 2
+    assert app.base_y == main.HEIGHT // 2
