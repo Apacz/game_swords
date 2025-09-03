@@ -22,3 +22,29 @@ def test_fruit_move_uses_speed():
     f.move()
     after = canvas.coords(f.id)
     assert after[1] - before[1] == f.speed
+
+
+def test_spawn_probabilities_level1():
+    probs = main.spawn_probabilities(1)
+    assert probs == {"black": 1, "red": 3, "purple": 5, "green": 91}
+
+
+def test_spawn_probabilities_cap():
+    probs = main.spawn_probabilities(30)
+    assert probs["green"] == 0
+    assert probs["black"] == 30
+    assert probs["red"] == 32
+    assert probs["purple"] == 38
+
+
+def test_fruit_requires_multiple_hits():
+    canvas = DummyCanvas()
+    app = object.__new__(main.SwordGameApp)
+    app.canvas = canvas
+    app.sword = canvas.create_line(0, 0, 0, 0)
+    app.sword_active = True
+    fruit = main.Fruit(canvas, level=1, x=0, y=0, color="purple", hits=2)
+    assert not app.check_sword_hit(fruit)
+    assert fruit.hp == 1
+    assert app.check_sword_hit(fruit)
+    assert fruit.hp == 0

@@ -5,7 +5,7 @@ import random
 WIDTH, HEIGHT = 800, 600
 START_LIVES = 3
 MOVE_SPEED = 20
-DURATION_MS = 5 * 60 * 1000  # 5 minutes
+DURATION_MS = 60 * 1000  # 1 minute
 CELL_SIZE = 40
 
 # map file used for all levels for now
@@ -15,13 +15,36 @@ MAP_FILES = {lvl: "maps/example_map.txt" for lvl in range(1, 21)}
 FRUIT_BASE_SPEED = 2
 
 
-class Fruit:
-    """Simple falling enemy that moves faster on higher levels."""
+def spawn_probabilities(level):
+    """Return spawn percentages for each fruit color at a given level.
 
-    def __init__(self, canvas, level, x, y):
+    Percentages are allocated from black to green and capped so the total
+    never exceeds 100.
+    """
+    remaining = 100
+    black = min(1 + (level - 1) * 1, remaining)
+    remaining -= black
+    red = min(3 + (level - 1) * 1, remaining)
+    remaining -= red
+    purple = min(5 + (level - 1) * 2, remaining)
+    remaining -= purple
+    green = remaining
+    return {"black": black, "red": red, "purple": purple, "green": green}
+
+
+class Fruit:
+    """Simple falling enemy that moves faster on higher levels.
+
+    Fruits can require multiple hits to destroy depending on their color.
+    """
+
+    def __init__(self, canvas, level, x, y, color="green", hits=1):
         self.canvas = canvas
-        # represent fruit as orange circle
-        self.id = canvas.create_oval(x - 15, y - 15, x + 15, y + 15, fill="orange")
+        self.color = color
+        self.hp = hits
+        self.id = canvas.create_oval(
+            x - 15, y - 15, x + 15, y + 15, fill=color
+        )
         # speed increases with level
         self.speed = FRUIT_BASE_SPEED + level
 
@@ -98,7 +121,7 @@ class SwordGameApp(tk.Tk):
         info_frame.pack(fill="x")
         self.lives_label = tk.Label(info_frame, text=f"Lives: {self.lives}")
         self.lives_label.pack(side="left")
-        self.timer_label = tk.Label(info_frame, text="Time: 05:00")
+        self.timer_label = tk.Label(info_frame, text="Time: 01:00")
         self.timer_label.pack(side="right")
 
         self.canvas = tk.Canvas(self.game_frame, width=WIDTH, height=HEIGHT, bg="white")
@@ -216,7 +239,8 @@ class SwordGameApp(tk.Tk):
     def spawn_fruit(self):
         """Create a new falling fruit and schedule the next spawn."""
         x = random.randint(20, WIDTH - 20)
-        fruit = Fruit(self.canvas, self.level, x, 0)
+        color, hits = self.choose_fruit_type()
+        fruit = Fruit(self.canvas, self.level, x, 0, color=color, hits=hits)
         self.fruits.append(fruit)
         self.move_fruit(fruit)
         # spawn frequency increases with level but never faster than every 200ms
@@ -242,12 +266,27 @@ class SwordGameApp(tk.Tk):
             self.after(50, lambda: self.move_fruit(fruit))
 
     def check_sword_hit(self, fruit):
-        """Return True if the sword overlaps the fruit while active."""
+        """Return True if the sword hits the fruit and it is destroyed."""
         if not self.sword_active:
             return False
         x1, y1, x2, y2 = self.canvas.coords(fruit.id)
         overlapping = self.canvas.find_overlapping(x1, y1, x2, y2)
-        return self.sword in overlapping
+        if self.sword in overlapping:
+            fruit.hp -= 1
+            if fruit.hp <= 0:
+                return True
+        return False
+
+    def choose_fruit_type(self):
+        probs = spawn_probabilities(self.level)
+        roll = random.uniform(0, 100)
+        cumulative = 0
+        for color in ("black", "red", "purple"):
+            cumulative += probs[color]
+            if roll < cumulative:
+                hits = {"black": 5, "red": 3, "purple": 2}[color]
+                return color, hits
+        return "green", 1
 
     def end_game(self, reason="time"):
         if reason == "out of lives":
