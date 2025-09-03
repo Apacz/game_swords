@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
+import random
 
 WIDTH, HEIGHT = 800, 600
 START_LIVES = 3
@@ -9,6 +10,24 @@ CELL_SIZE = 40
 
 # map file used for all levels for now
 MAP_FILES = {lvl: "maps/example_map.txt" for lvl in range(1, 21)}
+
+# base vertical speed of falling fruits
+FRUIT_BASE_SPEED = 2
+
+
+class Fruit:
+    """Simple falling enemy that moves faster on higher levels."""
+
+    def __init__(self, canvas, level, x, y):
+        self.canvas = canvas
+        # represent fruit as orange circle
+        self.id = canvas.create_oval(x - 15, y - 15, x + 15, y + 15, fill="orange")
+        # speed increases with level
+        self.speed = FRUIT_BASE_SPEED + level
+
+    def move(self):
+        """Move the fruit vertically based on its speed."""
+        self.canvas.move(self.id, 0, self.speed)
 
 
 def load_map(canvas, path):
@@ -91,6 +110,10 @@ class SwordGameApp(tk.Tk):
         self.bind("<Down>", lambda e: self.move_player(0, MOVE_SPEED))
         self.bind("<space>", lambda e: self.lose_life())
 
+        # list of active fruits
+        self.fruits = []
+        self.spawn_fruit()
+
         self.after(DURATION_MS, self.end_game)
 
     def move_player(self, dx, dy):
@@ -139,6 +162,42 @@ class SwordGameApp(tk.Tk):
         self.lives_label.config(text=f"Lives: {self.lives}")
         if self.lives <= 0:
             self.end_game(reason="out of lives")
+
+    # --- fruit/enemy mechanics -------------------------------------------------
+
+    def spawn_fruit(self):
+        """Create a new falling fruit and schedule the next spawn."""
+        x = random.randint(20, WIDTH - 20)
+        fruit = Fruit(self.canvas, self.level, x, 0)
+        self.fruits.append(fruit)
+        self.move_fruit(fruit)
+        # spawn frequency increases with level but never faster than every 200ms
+        interval = max(1000 - self.level * 50, 200)
+        self.after(interval, self.spawn_fruit)
+
+    def move_fruit(self, fruit):
+        """Move fruit down the screen and handle collisions."""
+        fruit.move()
+        if self.check_sword_hit(fruit):
+            self.canvas.delete(fruit.id)
+            if fruit in self.fruits:
+                self.fruits.remove(fruit)
+            return
+        x1, y1, x2, y2 = self.canvas.coords(fruit.id)
+        if y1 > HEIGHT:
+            # fruit escaped -> lose life
+            self.canvas.delete(fruit.id)
+            if fruit in self.fruits:
+                self.fruits.remove(fruit)
+            self.lose_life()
+        else:
+            self.after(50, lambda: self.move_fruit(fruit))
+
+    def check_sword_hit(self, fruit):
+        """Return True if the sword overlaps the given fruit."""
+        x1, y1, x2, y2 = self.canvas.coords(fruit.id)
+        overlapping = self.canvas.find_overlapping(x1, y1, x2, y2)
+        return self.sword in overlapping
 
     def end_game(self, reason="time"):
         if reason == "out of lives":
