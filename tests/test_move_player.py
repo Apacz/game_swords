@@ -32,6 +32,13 @@ class DummyCanvas:
             self.coords_map[item] = list(new_coords)
         return list(self.coords_map[item])
 
+    def find_overlapping(self, x1, y1, x2, y2):
+        overlapping = []
+        for item, (ix1, iy1, ix2, iy2) in self.coords_map.items():
+            if not (ix2 <= x1 or ix1 >= x2 or iy2 <= y1 or iy1 >= y2):
+                overlapping.append(item)
+        return overlapping
+
 
 def make_app():
     app = object.__new__(main.SwordGameApp)
