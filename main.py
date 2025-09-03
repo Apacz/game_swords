@@ -31,15 +31,25 @@ class Fruit:
 
 
 def load_map(canvas, path):
+    start = end = None
+    walls = []
     with open(path) as f:
         for row, line in enumerate(f):
             for col, char in enumerate(line.rstrip("\n")):
+                x1 = col * CELL_SIZE
+                y1 = row * CELL_SIZE
+                x2 = x1 + CELL_SIZE
+                y2 = y1 + CELL_SIZE
                 if char == "#":
-                    x1 = col * CELL_SIZE
-                    y1 = row * CELL_SIZE
-                    x2 = x1 + CELL_SIZE
-                    y2 = y1 + CELL_SIZE
                     canvas.create_rectangle(x1, y1, x2, y2, fill="lightgray")
+                    walls.append((x1, y1, x2, y2))
+                elif char == "S":
+                    canvas.create_rectangle(x1, y1, x2, y2, fill="lightgreen")
+                    start = (x1 + CELL_SIZE // 2, y1 + CELL_SIZE // 2)
+                elif char == "E":
+                    canvas.create_rectangle(x1, y1, x2, y2, fill="pink")
+                    end = (x1 + CELL_SIZE // 2, y1 + CELL_SIZE // 2)
+    return start, end, walls
 
 
 class SwordGameApp(tk.Tk):
@@ -75,7 +85,7 @@ class SwordGameApp(tk.Tk):
         self.level = level
         self.start_frame.pack_forget()
 
-        # reset lives and base position
+        # reset lives
         self.lives = START_LIVES
         self.base_x = WIDTH // 2
         self.base_y = HEIGHT - 20
@@ -90,7 +100,12 @@ class SwordGameApp(tk.Tk):
         self.canvas.pack()
 
         # draw level obstacles from map file
-        load_map(self.canvas, MAP_FILES.get(level, "maps/example_map.txt"))
+        start_pos, end_pos, self.walls = load_map(
+            self.canvas, MAP_FILES.get(level, "maps/example_map.txt")
+        )
+        self.end_pos = end_pos
+        if start_pos:
+            self.base_x, self.base_y = start_pos
 
         # player represented as circle
         self.player = self.canvas.create_oval(
@@ -128,8 +143,17 @@ class SwordGameApp(tk.Tk):
         # inside the canvas bounds.
         margin = 10
         old_x, old_y = self.base_x, self.base_y
-        self.base_x = max(margin, min(WIDTH - margin, self.base_x + dx))
-        self.base_y = max(margin, min(HEIGHT - margin, self.base_y + dy))
+        new_x = max(margin, min(WIDTH - margin, self.base_x + dx))
+        new_y = max(margin, min(HEIGHT - margin, self.base_y + dy))
+
+        # Collision detection against walls
+        walls = self.__dict__.get("walls", [])
+        new_bbox = [new_x - 10, new_y - 10, new_x + 10, new_y + 10]
+        for x1, y1, x2, y2 in walls:
+            if not (new_bbox[2] <= x1 or new_bbox[0] >= x2 or new_bbox[3] <= y1 or new_bbox[1] >= y2):
+                return
+
+        self.base_x, self.base_y = new_x, new_y
 
         # Determine the actual distance moved (may be less than dx/dy at edges)
         actual_dx = self.base_x - old_x
