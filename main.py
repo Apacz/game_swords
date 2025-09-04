@@ -111,12 +111,24 @@ class Fruit:
         self.id = canvas.create_oval(
             x - 15, y - 15, x + 15, y + 15, fill=color
         )
+        # draw a tiny sword icon on top of the fruit
+        blade = canvas.create_line(x, y - 10, x, y + 10, width=2, fill="black")
+        guard = canvas.create_line(x - 5, y + 5, x + 5, y + 5, width=2, fill="black")
+        self.icon_ids = [blade, guard]
         # speed increases with level
         self.speed = FRUIT_BASE_SPEED + level
 
     def move(self):
         """Move the fruit vertically based on its speed."""
         self.canvas.move(self.id, 0, self.speed)
+        for icon in self.icon_ids:
+            self.canvas.move(icon, 0, self.speed)
+
+    def delete(self):
+        """Remove the fruit and its sword icon from the canvas."""
+        self.canvas.delete(self.id)
+        for icon in self.icon_ids:
+            self.canvas.delete(icon)
 
 
 def load_map(canvas, path):
@@ -374,14 +386,14 @@ class SwordGameApp(tk.Tk):
             return
         fruit.move()
         if self.check_sword_hit(fruit):
-            self.canvas.delete(fruit.id)
+            fruit.delete()
             if fruit in self.fruits:
                 self.fruits.remove(fruit)
             return
         x1, y1, x2, y2 = self.canvas.coords(fruit.id)
         if y1 > HEIGHT:
             # fruit escaped -> lose life
-            self.canvas.delete(fruit.id)
+            fruit.delete()
             if fruit in self.fruits:
                 self.fruits.remove(fruit)
             self.lose_life()
