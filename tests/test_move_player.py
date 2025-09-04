@@ -39,6 +39,9 @@ class DummyCanvas:
                 overlapping.append(item)
         return overlapping
 
+    def delete(self, item):
+        self.coords_map.pop(item, None)
+
 
 def make_app():
     app = object.__new__(main.SwordGameApp)

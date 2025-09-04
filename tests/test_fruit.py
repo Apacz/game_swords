@@ -26,7 +26,7 @@ def test_fruit_move_uses_speed():
 
 def test_spawn_probabilities_level1():
     probs = main.spawn_probabilities(1)
-    assert probs == {"black": 1, "red": 3, "purple": 5, "green": 91}
+    assert probs == {"black": 1, "red": 3, "purple": 5, "orange": 2, "green": 89}
 
 
 def test_spawn_probabilities_cap():
@@ -48,3 +48,20 @@ def test_fruit_requires_multiple_hits():
     assert fruit.hp == 1
     assert app.check_sword_hit(fruit)
     assert fruit.hp == 0
+
+
+def test_fruit_has_sword_icon():
+    canvas = DummyCanvas()
+    f = main.Fruit(canvas, level=1, x=50, y=0)
+    assert len(f.icon_ids) == 2
+
+
+def test_fruit_icon_moves_with_fruit():
+    canvas = DummyCanvas()
+    f = main.Fruit(canvas, level=1, x=50, y=0)
+    before = [canvas.coords(i)[:] for i in f.icon_ids]
+    f.move()
+    after = [canvas.coords(i)[:] for i in f.icon_ids]
+    for b, a in zip(before, after):
+        assert a[1] - b[1] == f.speed
+        assert a[3] - b[3] == f.speed
