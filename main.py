@@ -5,7 +5,7 @@ import json
 import os
 
 WIDTH, HEIGHT = 800, 600
-START_LIVES = 3
+START_LIVES = 1000
 MOVE_SPEED = 20
 DURATION_MS = 60 * 1000  # 1 minute
 CELL_SIZE = 40
@@ -73,10 +73,12 @@ def spawn_probabilities(level):
     remaining -= black
     red = min(3 + (level - 1) * 1, remaining)
     remaining -= red
-    purple = min(5 + (level - 1) * 2, remaining)
+    purple = min(5+ (level - 1) * 2, remaining)
     remaining -= purple
+    orange = min(2 + (level - 1) * 2, remaining)
+    remaining -= orange
     green = remaining
-    return {"black": black, "red": red, "purple": purple, "green": green}
+    return {"black": black, "red": red, "purple": purple, "green": green, "orange": orange}
 
 
 class Fruit:
@@ -125,6 +127,9 @@ def load_map(canvas, path):
 class SwordGameApp(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.attributes("-fullscreen", True)
+        global WIDTH, HEIGHT
+        WIDTH, HEIGHT = self.winfo_screenwidth(), self.winfo_screenheight()
         self.title("Sword Levels")
         self.resizable(False, False)
 
@@ -216,6 +221,7 @@ class SwordGameApp(tk.Tk):
         self.bind("<Up>", lambda e: self.move_player(0, -MOVE_SPEED))
         self.bind("<Down>", lambda e: self.move_player(0, MOVE_SPEED))
         self.bind("<space>", lambda e: self.lose_life())
+        self.bind("<Escape>", lambda e: self.end_game("quit"))
 
         # list of active fruits
         self.fruits = []
@@ -381,14 +387,17 @@ class SwordGameApp(tk.Tk):
         probs = spawn_probabilities(self.level)
         roll = random.uniform(0, 100)
         cumulative = 0
-        for color in ("black", "red", "purple"):
+        for color in ("black", "red", "purple", "orange"):
             cumulative += probs[color]
             if roll < cumulative:
-                hits = {"black": 5, "red": 3, "purple": 2}[color]
+                hits = {"black": 5, "red": 3, "purple": 2, "orange": 2}[color]
                 return color, hits
         return "green", 1
 
     def end_game(self, reason="time"):
+        if not self.__dict__.get("running", True):
+            return
+        self.running = False
         if reason == "out of lives":
             msg = f"Out of lives! Level {self.level} over."
         else:
