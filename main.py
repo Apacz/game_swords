@@ -65,20 +65,37 @@ def unlock_next_level(profile: dict, current_level: int):
 def spawn_probabilities(level):
     """Return spawn percentages for each fruit color at a given level.
 
-    Percentages are allocated from black to green and capped so the total
-    never exceeds 100.
+    The allocation grows with the level while ensuring the total never
+    exceeds 100%.  Orange fruits are not available on the very first level,
+    so their probability is only allocated from level 2 onwards.  Any
+    remaining probability is assigned to green fruits.
     """
+
     remaining = 100
+
+    # Always allocate in order of the more challenging fruit first
     black = min(1 + (level - 1) * 1, remaining)
     remaining -= black
+
     red = min(3 + (level - 1) * 1, remaining)
     remaining -= red
-    purple = min(5+ (level - 1) * 2, remaining)
+
+    purple = min(5 + (level - 1) * 2, remaining)
     remaining -= purple
-    orange = min(2 + (level - 1) * 2, remaining)
-    remaining -= orange
+
+    # Orange fruits appear only from level 2 upwards
+    orange = 0
+    if level > 1 and remaining > 0:
+        orange = min(2 + (level - 2) * 2, remaining)
+        remaining -= orange
+
+    # Whatever probability is left goes to the basic green fruit
     green = remaining
-    return {"black": black, "red": red, "purple": purple, "green": green, "orange": orange}
+
+    probs = {"black": black, "red": red, "purple": purple, "green": green}
+    if orange:
+        probs["orange"] = orange
+    return probs
 
 
 class Fruit:
@@ -388,10 +405,12 @@ class SwordGameApp(tk.Tk):
         roll = random.uniform(0, 100)
         cumulative = 0
         for color in ("black", "red", "purple", "orange"):
-            cumulative += probs[color]
+            # Use .get so missing colors simply contribute 0 probability
+            cumulative += probs.get(color, 0)
             if roll < cumulative:
                 hits = {"black": 5, "red": 3, "purple": 2, "orange": 2}[color]
                 return color, hits
+        # If no special fruit was selected, default to a simple green one
         return "green", 1
 
     def end_game(self, reason="time"):
