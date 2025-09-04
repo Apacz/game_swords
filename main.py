@@ -118,11 +118,19 @@ class Fruit:
         # speed increases with level
         self.speed = FRUIT_BASE_SPEED + level
 
-    def move(self):
-        """Move the fruit vertically based on its speed."""
-        self.canvas.move(self.id, 0, self.speed)
+    def move(self, target_x, target_y):
+        """Move the fruit towards a target position."""
+        x1, y1, x2, y2 = self.canvas.coords(self.id)
+        cx = (x1 + x2) / 2
+        cy = (y1 + y2) / 2
+        dx = target_x - cx
+        dy = target_y - cy
+        dist = (dx ** 2 + dy ** 2) ** 0.5 or 1
+        move_x = dx / dist * self.speed
+        move_y = dy / dist * self.speed
+        self.canvas.move(self.id, move_x, move_y)
         for icon in self.icon_ids:
-            self.canvas.move(icon, 0, self.speed)
+            self.canvas.move(icon, move_x, move_y)
 
     def delete(self):
         """Remove the fruit and its sword icon from the canvas."""
@@ -368,12 +376,15 @@ class SwordGameApp(tk.Tk):
     # --- fruit/enemy mechanics -------------------------------------------------
 
     def spawn_fruit(self):
-        """Create a new falling fruit and schedule the next spawn."""
+        """Create a new fruit at the finish point and schedule the next spawn."""
         if not self.__dict__.get("running", True):
             return
-        x = random.randint(20, WIDTH - 20)
+        if self.end_pos:
+            x, y = self.end_pos
+        else:
+            x, y = WIDTH // 2, 0
         color, hits = self.choose_fruit_type()
-        fruit = Fruit(self.canvas, self.level, x, 0, color=color, hits=hits)
+        fruit = Fruit(self.canvas, self.level, x, y, color=color, hits=hits)
         self.fruits.append(fruit)
         self.move_fruit(fruit)
         # spawn frequency increases with level but never faster than every 200ms
@@ -381,24 +392,34 @@ class SwordGameApp(tk.Tk):
         self.after(interval, self.spawn_fruit)
 
     def move_fruit(self, fruit):
-        """Move fruit down the screen and handle collisions."""
+        """Move fruit toward the player and handle collisions."""
         if not self.__dict__.get("running", True):
             return
-        fruit.move()
+        fruit.move(self.base_x, self.base_y)
         if self.check_sword_hit(fruit):
             fruit.delete()
             if fruit in self.fruits:
                 self.fruits.remove(fruit)
             return
         x1, y1, x2, y2 = self.canvas.coords(fruit.id)
-        if y1 > HEIGHT:
-            # fruit escaped -> lose life
+        overlapping = self.canvas.find_overlapping(x1, y1, x2, y2)
+        if self.player in overlapping:
             fruit.delete()
             if fruit in self.fruits:
                 self.fruits.remove(fruit)
             self.lose_life()
-        else:
-            self.after(50, lambda: self.move_fruit(fruit))
+            return
+        if (
+            x2 < 0
+            or x1 > WIDTH
+            or y2 < 0
+            or y1 > HEIGHT
+        ):
+            fruit.delete()
+            if fruit in self.fruits:
+                self.fruits.remove(fruit)
+            return
+        self.after(50, lambda: self.move_fruit(fruit))
 
     def check_sword_hit(self, fruit):
         """Return True if the sword hits the fruit and it is destroyed."""
