@@ -11,7 +11,7 @@ DURATION_MS = 60 * 1000  # 1 minute
 CELL_SIZE = 40
 
 # map file used for all levels for now
-MAP_FILES = {lvl: "maps/example_map.txt" for lvl in range(1, 21)}
+MAP_FILES = {lvl: "maps/example_map" + str(lvl) + ".txt" for lvl in range(1, 21)}
 
 # base vertical speed of falling fruits
 FRUIT_BASE_SPEED = 2
@@ -198,7 +198,7 @@ class SwordGameApp(tk.Tk):
 
         # draw level obstacles from map file
         start_pos, end_pos, self.walls = load_map(
-            self.canvas, MAP_FILES.get(level, "maps/example_map.txt")
+            self.canvas, MAP_FILES.get(level, "maps/example_map" + str(level) + ".txt")
         )
         self.end_pos = end_pos
         if start_pos:
