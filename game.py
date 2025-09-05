@@ -9,6 +9,7 @@ to follow the flow of the program and experiment with changes.
 
 import random
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox
 
 from fruit import Fruit, spawn_probabilities
@@ -25,6 +26,7 @@ DURATION_MS = 60 * 1000  # 1 minute
 
 # Map file used for all levels for now
 MAP_FILES = {lvl: f"maps/example_map{lvl}.txt" for lvl in range(1, 21)}
+MUSIC_FILE = Path(__file__).with_name("resources").joinpath("Attis-BBC.wav")
 
 
 class SwordGameApp(tk.Tk):
@@ -49,6 +51,8 @@ class SwordGameApp(tk.Tk):
         self.lives = START_LIVES
         self.base_x = WIDTH // 2
         self.base_y = HEIGHT - 20
+
+        self._music_playing = False
 
         # Load player profile for level unlocking
         self.profile = load_profile()
@@ -77,6 +81,27 @@ class SwordGameApp(tk.Tk):
         for name in _game_attrs:
             setattr(self, name, None)
 
+    def start_background_music(self) -> None:
+        """Play background music if available."""
+        try:
+            import pygame
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+            pygame.mixer.music.load(str(MUSIC_FILE))
+            pygame.mixer.music.play(-1)
+            self._music_playing = True
+        except Exception:
+            self._music_playing = False
+
+    def stop_background_music(self) -> None:
+        """Stop playing background music."""
+        if getattr(self, "_music_playing", False):
+            try:
+                import pygame
+                pygame.mixer.music.stop()
+            except Exception:
+                pass
+            self._music_playing = False
     # ------------------------------------------------------------------
     # Menu handling
     # ------------------------------------------------------------------
@@ -95,6 +120,7 @@ class SwordGameApp(tk.Tk):
         self.level = level
         self.start_frame.pack_forget()
         self.running = True
+        self.start_background_music()
 
         # reset lives and player position
         self.lives = START_LIVES
@@ -221,6 +247,7 @@ class SwordGameApp(tk.Tk):
     def complete_level(self) -> None:
         """Handle level completion: unlock the next level and return to menu."""
         self.running = False
+        self.stop_background_music()
         messagebox.showinfo("Level Complete", f"Level {self.level} complete!")
         unlock_next_level(self.profile, self.level)
         save_profile(self.profile)
@@ -334,6 +361,7 @@ class SwordGameApp(tk.Tk):
         if not self.__dict__.get("running", True):
             return
         self.running = False
+        self.stop_background_music()
         if reason == "out of lives":
             msg = f"Out of lives! Level {self.level} over."
         else:
