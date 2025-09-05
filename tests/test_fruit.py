@@ -3,21 +3,23 @@ from pathlib import Path
 
 # Ensure the project root is on the Python path for imports.
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-import main
+
+import fruit
+import game
 from test_move_player import DummyCanvas
 
 
 def test_fruit_speed_increases_with_level():
     canvas = DummyCanvas()
-    f1 = main.Fruit(canvas, level=1, x=50, y=0)
-    f2 = main.Fruit(canvas, level=5, x=50, y=0)
-    assert f1.speed == main.FRUIT_BASE_SPEED + 1
-    assert f2.speed == main.FRUIT_BASE_SPEED + 5
+    f1 = fruit.Fruit(canvas, level=1, x=50, y=0)
+    f2 = fruit.Fruit(canvas, level=5, x=50, y=0)
+    assert f1.speed == fruit.FRUIT_BASE_SPEED + 1
+    assert f2.speed == fruit.FRUIT_BASE_SPEED + 5
 
 
 def test_fruit_move_uses_speed():
     canvas = DummyCanvas()
-    f = main.Fruit(canvas, level=2, x=0, y=0)
+    f = fruit.Fruit(canvas, level=2, x=0, y=0)
     before = canvas.coords(f.id)
     f.move(100, 0)
     after = canvas.coords(f.id)
@@ -28,12 +30,12 @@ def test_fruit_move_uses_speed():
 
 
 def test_spawn_probabilities_level1():
-    probs = main.spawn_probabilities(1)
+    probs = fruit.spawn_probabilities(1)
     assert probs == {"black": 1, "red": 3, "purple": 5, "green": 91}
 
 
 def test_spawn_probabilities_cap():
-    probs = main.spawn_probabilities(30)
+    probs = fruit.spawn_probabilities(30)
     assert probs["green"] == 0
     assert probs["black"] == 30
     assert probs["red"] == 32
@@ -42,26 +44,26 @@ def test_spawn_probabilities_cap():
 
 def test_fruit_requires_multiple_hits():
     canvas = DummyCanvas()
-    app = object.__new__(main.SwordGameApp)
+    app = object.__new__(game.SwordGameApp)
     app.canvas = canvas
     app.sword = canvas.create_line(0, 0, 0, 0)
     app.sword_active = True
-    fruit = main.Fruit(canvas, level=1, x=0, y=0, color="purple", hits=2)
-    assert not app.check_sword_hit(fruit)
-    assert fruit.hp == 1
-    assert app.check_sword_hit(fruit)
-    assert fruit.hp == 0
+    fruit_obj = fruit.Fruit(canvas, level=1, x=0, y=0, color="purple", hits=2)
+    assert not game.SwordGameApp.check_sword_hit(app, fruit_obj)
+    assert fruit_obj.hp == 1
+    assert game.SwordGameApp.check_sword_hit(app, fruit_obj)
+    assert fruit_obj.hp == 0
 
 
 def test_fruit_has_sword_icon():
     canvas = DummyCanvas()
-    f = main.Fruit(canvas, level=1, x=50, y=0)
+    f = fruit.Fruit(canvas, level=1, x=50, y=0)
     assert len(f.icon_ids) == 2
 
 
 def test_fruit_icon_moves_with_fruit():
     canvas = DummyCanvas()
-    f = main.Fruit(canvas, level=1, x=0, y=0)
+    f = fruit.Fruit(canvas, level=1, x=0, y=0)
     before = [canvas.coords(i)[:] for i in f.icon_ids]
     f.move(50, 0)
     after = [canvas.coords(i)[:] for i in f.icon_ids]
@@ -77,7 +79,7 @@ def test_fruit_icon_moves_with_fruit():
 
 
 def test_spawn_fruit_stops_when_time_low():
-    app = object.__new__(main.SwordGameApp)
+    app = object.__new__(game.SwordGameApp)
     app.canvas = DummyCanvas()
     app.level = 1
     app.fruits = []
@@ -88,8 +90,8 @@ def test_spawn_fruit_stops_when_time_low():
     def dummy_after(self, interval, callback):
         self.after_called = True
 
-    app.after = dummy_after.__get__(app, main.SwordGameApp)
-    app.spawn_fruit()
+    app.after = dummy_after.__get__(app, game.SwordGameApp)
+    game.SwordGameApp.spawn_fruit(app)
     assert app.fruits == []
     assert not app.after_called
 
@@ -100,7 +102,7 @@ class DummyLabel:
 
 
 def test_fruit_collision_loses_life():
-    app = object.__new__(main.SwordGameApp)
+    app = object.__new__(game.SwordGameApp)
     app.canvas = DummyCanvas()
     app.base_x = 50
     app.base_y = 50
@@ -111,8 +113,8 @@ def test_fruit_collision_loses_life():
     app.lives_label = DummyLabel()
     app.fruits = []
     app.running = True
-    fruit = main.Fruit(app.canvas, level=1, x=50, y=50)
-    app.fruits.append(fruit)
-    app.move_fruit(fruit)
+    fruit_obj = fruit.Fruit(app.canvas, level=1, x=50, y=50)
+    app.fruits.append(fruit_obj)
+    game.SwordGameApp.move_fruit(app, fruit_obj)
     assert app.lives == 1
-    assert fruit not in app.fruits
+    assert fruit_obj not in app.fruits
