@@ -5,9 +5,14 @@ The bulk of the implementation now lives in dedicated modules such as
 clear where new programmers should look for the actual logic.
 """
 
+import tkinter as tk
+
 from game import SwordGameApp
 
 
 if __name__ == "__main__":
-    app = SwordGameApp()
-    app.mainloop()
+    try:
+        app = SwordGameApp()
+        app.mainloop()
+    except tk.TclError as exc:
+        print("Unable to start the graphical interface:", exc)
