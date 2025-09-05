@@ -3,7 +3,9 @@ from pathlib import Path
 
 # Ensure the project root is on the Python path for imports.
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-import main
+
+import game
+
 
 class DummyCanvas:
     def __init__(self):
@@ -44,10 +46,10 @@ class DummyCanvas:
 
 
 def make_app():
-    app = object.__new__(main.SwordGameApp)
+    app = object.__new__(game.SwordGameApp)
     app.canvas = DummyCanvas()
-    app.base_x = main.WIDTH // 2
-    app.base_y = main.HEIGHT // 2
+    app.base_x = game.WIDTH // 2
+    app.base_y = game.HEIGHT // 2
     app.player = app.canvas.create_oval(
         app.base_x - 10, app.base_y - 10, app.base_x + 10, app.base_y + 10,
         fill="blue",
@@ -61,16 +63,16 @@ def make_app():
 
 def test_move_player_updates_sword():
     app = make_app()
-    app.move_player(20, -20)
-    assert app.base_x == main.WIDTH // 2 + 20
-    assert app.base_y == main.HEIGHT // 2 - 20
+    game.SwordGameApp.move_player(app, 20, -20)
+    assert app.base_x == game.WIDTH // 2 + 20
+    assert app.base_y == game.HEIGHT // 2 - 20
     x1, y1, x2, y2 = app.canvas.coords(app.sword)
     assert (x2, y2) == (app.base_x, app.base_y - 100)
 
 
 def test_move_player_stays_within_bounds():
     app = make_app()
-    app.move_player(-1000, -1000)
+    game.SwordGameApp.move_player(app, -1000, -1000)
     assert app.base_x == 10
     assert app.base_y == 10
     assert app.canvas.coords(app.sword) == [10, 10, 10, -90]
@@ -80,6 +82,6 @@ def test_move_player_blocked_by_wall():
     app = make_app()
     wall = [app.base_x + 10, app.base_y - 10, app.base_x + 30, app.base_y + 10]
     app.walls = [wall]
-    app.move_player(20, 0)
-    assert app.base_x == main.WIDTH // 2
-    assert app.base_y == main.HEIGHT // 2
+    game.SwordGameApp.move_player(app, 20, 0)
+    assert app.base_x == game.WIDTH // 2
+    assert app.base_y == game.HEIGHT // 2
